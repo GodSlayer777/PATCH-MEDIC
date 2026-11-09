@@ -1,0 +1,18 @@
+# Entorno virtual
+env/
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Variables de entorno y secretos
+.env
+
+# Pytest cache
+.pytest_cache/

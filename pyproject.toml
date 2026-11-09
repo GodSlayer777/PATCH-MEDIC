@@ -1,0 +1,37 @@
+# ==============================================================================
+# pyproject.toml: Configuración de empaquetado, metadatos y CLI del proyecto
+# Compatible con PEP 517, PEP 518 y PEP 621.
+# ==============================================================================
+
+[build-system]
+# Sistema de construcción estándar usando setuptools
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "patch-medic"
+version = "0.1.0"
+description = "Agentic CLI & CI action for autonomous test triage and sandboxed self-healing patches."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Leo" }
+]
+
+# Dependencias mínimas esenciales en tiempo de ejecución
+dependencies = [
+    "click>=8.1.7",     # Framework para construcción de interfaces CLI
+    "rich>=13.7.0",     # Renderizado de paneles, diffs con sintaxis y formato en consola
+    "pytest>=8.0.0",    # Runner de pruebas para validación y extracción de tracebacks
+    "httpx>=0.27.0",    # Cliente HTTP síncrono para interactuar con la API del LLM
+    "pydantic>=2.6.0"   # Validación tipada de esquemas de datos y contextos
+]
+
+# Define el comando ejecutable de consola generado tras 'pip install -e .'
+[project.scripts]
+patch-medic = "patch_medic.cli:main"
+
+# Configuración de Pytest para resolver rutas de imports locales sin PYTHONPATH manual
+[tool.pytest.ini_options]
+pythonpath = ["."]

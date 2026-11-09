@@ -1,0 +1,16 @@
+# ==============================================================================
+# requirements.txt: Dependencias directas para entornos de desarrollo y CI
+# ==============================================================================
+
+# CLI & Presentación
+click>=8.1.7        # Creación y parsing de comandos, banderas y opciones CLI
+rich>=13.7.0         # Formateo visual, sintaxis coloreada para diffs y paneles de terminal
+
+# Ejecución y Testing
+pytest>=8.0.0       # Suite de pruebas sobre la que opera el triage de patch-medic
+
+# Networking & Inferencia
+httpx>=0.27.0       # Cliente HTTP robusto para llamadas al endpoint de chat completions
+
+# Modelado de Datos
+pydantic>=2.6.0     # Serialización y tipado estricto de estructuras de datos

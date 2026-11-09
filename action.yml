@@ -1,0 +1,90 @@
+# ==============================================================================
+# action.yml: GitHub Composite Action para integración continua (CI)
+# Permite ejecutar patch-medic de forma autónoma en pipelines de GitHub Actions.
+# Regla de seguridad clave: si se genera un parche, NUNCA se empuja a 'main';
+# se aísla automáticamente en una rama temporal 'patch/auto-fix-<timestamp>'.
+# ==============================================================================
+
+name: 'patch-medic Runner'
+description: 'Autonomous test triage and sandboxed diff generation for pytest suites'
+author: 'Leo'
+
+inputs:
+  llm_api_key:
+    description: 'API key para autenticación en el proveedor de LLM configurado'
+    required: true
+  llm_model:
+    description: 'Modelo de lenguaje a utilizar para inferencia'
+    required: false
+    default: 'gemini-1.5-flash'  # Modelo predeterminado rápido y económico
+  llm_base_url:
+    description: 'URL base del endpoint OpenAI-compatible'
+    required: false
+    default: 'https://generativelanguage.googleapis.com/v1beta/openai'
+  github_token:
+    description: 'Token de GitHub (secrets.GITHUB_TOKEN) con permisos para crear y empujar ramas'
+    required: true
+  max_retries:
+    description: 'Máximo número de intentos de parche por cada test fallido'
+    required: false
+    default: '2'
+
+runs:
+  using: 'composite'
+  steps:
+    # 1. Configuración del entorno de ejecución de Python
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    # 2. Instalación del paquete en modo editable para registrar el CLI 'patch-medic'
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -e .
+
+    # 3. Ejecución del agente sanador en el entorno de pruebas
+    - name: Run patch-medic in Sandbox
+      id: medic
+      shell: bash
+      env:
+        LLM_API_KEY: ${{ inputs.llm_api_key }}
+        LLM_MODEL: ${{ inputs.llm_model }}
+        LLM_BASE_URL: ${{ inputs.llm_base_url }}
+      run: |
+        # Desactivar 'set -e' para evitar que el fallo de los tests aborte el script antes de capturar el status
+        set +e
+        patch-medic heal --max-retries ${{ inputs.max_retries }}
+        EXIT_CODE=$?
+        echo "medic_status=$EXIT_CODE" >> $GITHUB_OUTPUT
+        exit $EXIT_CODE
+
+    # 4. Aislamiento de seguridad: crea una rama alternativa si se aplicó un parche
+    - name: Isolate Patch & Push to Branch (Never main)
+      if: failure() && steps.medic.outputs.medic_status != '0'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+      run: |
+        # Comprobar si quedaron archivos modificados en el espacio de trabajo
+        if [ -n "$(git status --porcelain)" ]; then
+          TIMESTAMP=$(date +%s)
+          BRANCH_NAME="patch/auto-fix-$TIMESTAMP"
+          
+          # Configurar la identidad del bot para el commit
+          git config --global user.name "patch-medic[bot]"
+          git config --global user.email "patch-medic@users.noreply.github.com"
+          
+          # Crear rama aislada, comitear y empujar al repositorio remoto
+          git checkout -b "$BRANCH_NAME"
+          git add -u
+          git commit -m "fix(auto-medic): suggested patch for failing unit tests"
+          git push origin "$BRANCH_NAME"
+          
+          echo "::warning title=Patch Generated::Se generó un parche en la rama aislada $BRANCH_NAME. No se modificó la rama principal."
+        else
+          echo "::error title=Patch Failed::No se pudo generar un parche funcional tras los intentos permitidos."
+        fi
